@@ -47,45 +47,6 @@
             min-height: 0;
         }
 
-        .search-container {
-            position: relative;
-            margin-bottom: 15px;
-            z-index: 10;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 10px;
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: var(--text-primary);
-            font-size: 16px;
-        }
-
-        .autocomplete-list {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            max-height: 200px;
-            overflow-y: auto;
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-top: none;
-            z-index: 99;
-        }
-
-        .autocomplete-list div {
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .autocomplete-list div:hover {
-            background-color: rgba(96, 125, 139, 0.1);
-        }
-
         #network-container {
             flex-grow: 1;
             background-color: var(--bg-secondary);
@@ -183,7 +144,6 @@
             border-bottom: none;
         }
 
-        /* Mobile Responsive Styles */
         @media screen and (max-width: 768px) {
             .container {
                 flex-direction: column;
@@ -197,20 +157,14 @@
                 height: 60vh;
             }
 
+            .search-container {
+                display: none;
+            }
+
             .connections-panel {
                 max-width: 100%;
                 max-height: 30vh;
                 margin-top: 10px;
-            }
-
-            .search-input {
-                font-size: 14px;
-                padding: 8px;
-            }
-
-            .autocomplete-list div {
-                font-size: 14px;
-                padding: 8px;
             }
 
             .node text {
@@ -227,7 +181,6 @@
             }
         }
 
-        /* Prevent user scaling */
         @media screen and (max-width: 768px) {
             html, body {
                 touch-action: manipulation;
@@ -293,11 +246,9 @@
                         searchInput.value = skill;
                         autocompleteList.innerHTML = '';
                         
-                        // Improved skill selection for both desktop and mobile
                         selectSkillByName(skill);
                     });
 
-                    // Ensure touch events work correctly
                     div.addEventListener('touchend', (e) => {
                         e.preventDefault();
                         div.click();
@@ -348,12 +299,12 @@
                 .then(data => {
                     networkData = data;
                     
-                    simulation = d3.forceSimulation(networkData.nodes)
-                        .force("charge", d3.forceManyBody().strength(-300))
-                        .force("center", d3.forceCenter(width / 2, height / 2))
-                        .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.degree) * 4 + 10))
-                        .force("link", d3.forceLink(networkData.edges).id(d => d.id).distance(100))
-                        .on("tick", ticked);
+                    // Remove simulation and force layout, place nodes statically
+                    const nodes = networkData.nodes.map(node => ({
+                        ...node, 
+                        x: width / 2 + (Math.random() * 100 - 50), 
+                        y: height / 2 + (Math.random() * 100 - 50)
+                    }));
                     
                     const link = networkContainer.selectAll(".link")
                         .data(networkData.edges)
@@ -361,47 +312,52 @@
                         .attr("class", "link");
                     
                     const node = networkContainer.selectAll(".node")
-                        .data(networkData.nodes)
+                        .data(nodes)
                         .enter().append("g")
                         .attr("class", "node")
+                        .attr("transform", d => `translate(${d.x},${d.y})`)
                         .on("click", selectSkill);
                     
                     node.append("circle")
-                        .attr("r", d => Math.sqrt(d.degree) * 4 + 8)
+                        .attr("r", d => {
+                            const maxRadius = Math.min(width, height) / 10;
+                            const scaledRadius = Math.sqrt(d.degree) * 4 + 8;
+                            return Math.min(scaledRadius, maxRadius);
+                        })
                         .style("fill", "var(--node-primary)");
                     
                     node.append("text")
                         .text(d => d.id)
-                        .attr("dy", "0.35em");
-                    
-                    function ticked() {
-                        link
-                            .attr("x1", d => d.source.x)
-                            .attr("y1", d => d.source.y)
-                            .attr("x2", d => d.target.x)
-                            .attr("y2", d => d.target.y);
-                        
-                        node.attr("transform", d => `translate(${d.x},${d.y})`);
-                    }
+                        .attr("dy", "0.35em")
+                        .each(function(d) {
+                            // Ensure text fits within circle
+                            const circle = d3.select(this.parentNode).select('circle');
+                            const radius = parseFloat(circle.attr('r'));
+                            const textElement = d3.select(this);
+                            
+                            let fontSize = 10;
+                            textElement.attr('font-size', fontSize);
+                            
+                            while (this.getComputedTextLength() > radius * 1.6 && fontSize > 6) {
+                                fontSize--;
+                                textElement.attr('font-size', fontSize);
+                            }
+                        });
                 });
         }
 
         function selectSkill(event, selectedSkill) {
-            // Prevent default behavior
             if (event.preventDefault) event.preventDefault();
 
-            // Clear previous selections
             d3.selectAll('.node')
                 .classed('selected', false)
                 .classed('connected', false);
             d3.selectAll('.link')
                 .style('opacity', 1);
 
-            // Highlight selected skill
             d3.select(event.currentTarget)
                 .classed('selected', true);
 
-            // Find connected nodes
             const connectedNodes = new Set();
             networkData.edges.forEach(edge => {
                 if (edge.source.id === selectedSkill.id || edge.target.id === selectedSkill.id) {
@@ -410,10 +366,8 @@
                 }
             });
 
-            // Update connections panel
             updateConnectionsPanel(selectedSkill.id, Array.from(connectedNodes));
 
-            // Highlight connected nodes
             d3.selectAll('.node')
                 .filter(d => connectedNodes.has(d.id))
                 .classed('connected', true);
@@ -425,13 +379,11 @@
                 .node();
             
             if (targetNode && targetNode.__data__) {
-                // Manually create an event-like object
                 selectSkill({ 
                     currentTarget: targetNode, 
                     preventDefault: () => {} 
                 }, targetNode.__data__);
 
-                // Scroll to network container on mobile
                 if (window.innerWidth <= 768) {
                     document.getElementById('network-container').scrollIntoView({
                         behavior: 'smooth',
