@@ -297,6 +297,11 @@
                 });
             });
 
+            // Add touch event support for mobile
+            searchInput.addEventListener('touchend', function(e) {
+                this.focus();
+            });
+
             document.addEventListener('click', function(e) {
                 if (e.target !== searchInput) {
                     autocompleteList.innerHTML = '';
@@ -377,15 +382,18 @@
         }
 
         function selectSkill(event, selectedSkill) {
+            // Clear previous selections
             d3.selectAll('.node')
                 .classed('selected', false)
                 .classed('connected', false);
             d3.selectAll('.link')
                 .style('opacity', 1);
 
+            // Highlight selected skill
             d3.select(event.currentTarget)
                 .classed('selected', true);
 
+            // Find connected nodes
             const connectedNodes = new Set();
             networkData.edges.forEach(edge => {
                 if (edge.source.id === selectedSkill.id || edge.target.id === selectedSkill.id) {
@@ -394,8 +402,10 @@
                 }
             });
 
+            // Update connections panel
             updateConnectionsPanel(selectedSkill.id, Array.from(connectedNodes));
 
+            // Highlight connected nodes
             d3.selectAll('.node')
                 .filter(d => connectedNodes.has(d.id))
                 .classed('connected', true);
@@ -405,6 +415,14 @@
             const targetNode = d3.selectAll('.node').filter(d => d.id === skillName).node();
             if (targetNode && targetNode.__data__) {
                 selectSkill({ currentTarget: targetNode }, targetNode.__data__);
+                
+                // Scroll to network container on mobile
+                if (window.innerWidth <= 768) {
+                    document.getElementById('network-container').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }
             }
         }
 
