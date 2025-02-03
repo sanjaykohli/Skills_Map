@@ -293,11 +293,9 @@
                         searchInput.value = skill;
                         autocompleteList.innerHTML = '';
                         
-                        // Improved skill selection for both desktop and mobile
                         selectSkillByName(skill);
                     });
 
-                    // Ensure touch events work correctly
                     div.addEventListener('touchend', (e) => {
                         e.preventDefault();
                         div.click();
@@ -322,6 +320,9 @@
             const panel = document.getElementById('connections-panel');
             panel.querySelector('.connections-list').innerHTML = '';
             panel.querySelector('.connections-count').textContent = '0 connections';
+
+            // Clear search input
+            document.getElementById('search').value = '';
         }
 
         function initVisualization() {
@@ -390,6 +391,10 @@
             // Prevent default behavior
             if (event.preventDefault) event.preventDefault();
 
+            // Update search bar with selected skill name
+            const searchInput = document.getElementById('search');
+            searchInput.value = selectedSkill.id;
+
             // Clear previous selections
             d3.selectAll('.node')
                 .classed('selected', false)
@@ -425,6 +430,10 @@
                 .node();
             
             if (targetNode && targetNode.__data__) {
+                // Update search bar
+                const searchInput = document.getElementById('search');
+                searchInput.value = skillName;
+
                 // Manually create an event-like object
                 selectSkill({ 
                     currentTarget: targetNode, 
