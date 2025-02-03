@@ -4,46 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skill Network Visualization</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
         :root {
             --bg-dark: #121212;
             --bg-secondary: #1e1e1e;
-            --text-primary: #ffffff;
-            --accent-color: #4A90E2;
-            --node-primary: #5E81AC;
-            --node-connected: #81A1C1;
-            --node-highlight: #BF616A;
-            --link-color: rgba(94, 129, 172, 0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #888;
+            --border-color: #333;
+            --node-primary: #3a3a3a;
+            --node-secondary: #4a4a4a;
+            --node-highlight: #607d8b;
+            --link-color: rgba(96, 125, 139, 0.3);
         }
 
         * {
             box-sizing: border-box;
-        }
-
-        html, body {
             margin: 0;
             padding: 0;
-            height: 100%;
+        }
+
+        body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-dark);
             color: var(--text-primary);
             line-height: 1.6;
+            overflow: hidden;
         }
 
         .container {
             display: flex;
-            flex-direction: column;
             height: 100vh;
-            padding: 10px;
-            gap: 10px;
-            overflow: hidden;
-        }
-
-        @media (min-width: 768px) {
-            .container {
-                flex-direction: row;
-            }
+            padding: 20px;
+            gap: 20px;
         }
 
         .main-content {
@@ -55,51 +49,50 @@
 
         .search-container {
             position: relative;
-            margin-bottom: 10px;
-            width: 100%;
+            margin-bottom: 15px;
             z-index: 10;
         }
 
-        input[type="text"] {
+        .search-input {
             width: 100%;
             padding: 10px;
-            border: 1px solid #333;
-            border-radius: 6px;
             background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
             color: var(--text-primary);
             font-size: 16px;
         }
 
-        .autocomplete-items {
+        .autocomplete-list {
             position: absolute;
-            border: 1px solid #333;
-            border-top: none;
-            z-index: 99;
             top: 100%;
             left: 0;
             right: 0;
             max-height: 200px;
             overflow-y: auto;
             background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            z-index: 99;
         }
 
-        .autocomplete-items div {
+        .autocomplete-list div {
             padding: 10px;
             cursor: pointer;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .autocomplete-items div:hover {
-            background-color: rgba(74, 158, 255, 0.1);
+        .autocomplete-list div:hover {
+            background-color: rgba(96, 125, 139, 0.1);
         }
 
         #network-container {
             flex-grow: 1;
             background-color: var(--bg-secondary);
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
             position: relative;
-            min-height: 300px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
 
         #network-container svg {
@@ -108,18 +101,17 @@
         }
 
         .node circle {
-            stroke: rgba(255,255,255,0.3);
-            stroke-width: 2px;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
 
         .node text {
-            font-weight: bold;
+            font-weight: 600;
             fill: var(--text-primary);
             text-anchor: middle;
             dominant-baseline: middle;
-            pointer-events: none;
             font-size: 10px;
+            pointer-events: none;
         }
 
         .link {
@@ -128,72 +120,67 @@
             transition: all 0.3s ease;
         }
 
-        .node.highlighted circle {
+        .node.selected circle {
             stroke: var(--node-highlight);
             stroke-width: 3px;
-            transform: scale(1.2);
             fill: var(--node-highlight) !important;
         }
 
         .node.connected circle {
-            fill: var(--node-connected) !important;
-            stroke: var(--accent-color);
-            stroke-width: 2.5px;
-        }
-
-        .link.highlighted {
-            stroke: var(--node-highlight);
-            stroke-width: 3px;
+            fill: var(--node-secondary) !important;
+            stroke: var(--text-primary);
+            stroke-width: 2px;
         }
 
         .connections-panel {
             flex: 1;
-            min-width: 250px;
             background-color: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 15px;
-            display: none;
-            flex-direction: column;
-            max-height: 100%;
-            overflow: hidden;
-        }
-
-        @media (max-width: 767px) {
-            .connections-panel {
-                width: 100%;
-                max-height: 300px;
-            }
-        }
-
-        .connections-panel.visible {
+            border-radius: 12px;
+            padding: 20px;
             display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 350px;
+        }
+
+        .connections-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .connections-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .connections-count {
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
         .connections-list {
             list-style: none;
-            padding: 0;
-            margin: 0;
-            flex-grow: 1;
             overflow-y: auto;
+            flex-grow: 1;
         }
 
         .connections-list li {
-            padding: 10px;
-            border-bottom: 1px solid #333;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
             cursor: pointer;
-            transition: background-color 0.3s;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            transition: background-color 0.2s;
+            font-size: 14px;
         }
 
         .connections-list li:hover {
-            background-color: rgba(74, 158, 255, 0.1);
+            background-color: rgba(96, 125, 139, 0.1);
         }
 
-        .connections-count {
-            color: #666;
-            margin-bottom: 10px;
+        .connections-list li:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
@@ -201,154 +188,82 @@
     <div class="container">
         <div class="main-content">
             <div class="search-container">
-                <input type="text" id="search" placeholder="Search for skills...">
-                <div class="autocomplete-items" id="autocomplete-list"></div>
+                <input type="text" class="search-input" id="search" placeholder="Search for skills...">
+                <div class="autocomplete-list" id="autocomplete-list"></div>
             </div>
             <div id="network-container">
                 <svg></svg>
             </div>
         </div>
         <div class="connections-panel" id="connections-panel">
-            <h2>Connected Skills</h2>
-            <div class="connections-count"></div>
+            <div class="connections-header">
+                <h2>Skill Connections</h2>
+                <div class="connections-count">0 connections</div>
+            </div>
             <ul class="connections-list"></ul>
         </div>
     </div>
     
     <script>
         let simulation, svg, networkContainer, width, height, zoom;
-        let networkData;
-        let allSkills = [];
+        let networkData, allSkills = [];
 
         async function loadSkills() {
             try {
                 const response = await fetch('/api/skills');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch skills');
-                }
                 allSkills = await response.json();
             } catch (error) {
                 console.error('Error loading skills:', error);
-                allSkills = []; 
             }
         }
 
-        function autocomplete(input) {
-            input.addEventListener("input", function(e) {
-                const val = this.value.toLowerCase();
-                const list = document.getElementById("autocomplete-list");
-                list.innerHTML = '';
+        function setupAutocomplete() {
+            const searchInput = document.getElementById('search');
+            const autocompleteList = document.getElementById('autocomplete-list');
 
-                if (!val) {
+            searchInput.addEventListener('input', function() {
+                const value = this.value.toLowerCase();
+                autocompleteList.innerHTML = '';
+
+                if (!value) {
                     resetVisualization();
                     return;
                 }
 
                 const matches = allSkills.filter(skill => 
-                    skill.toLowerCase().includes(val)
+                    skill.toLowerCase().includes(value)
                 ).slice(0, 10);
 
                 matches.forEach(skill => {
-                    const div = document.createElement("div");
+                    const div = document.createElement('div');
                     div.textContent = skill;
-                    div.addEventListener("click", () => {
-                        input.value = skill;
-                        list.innerHTML = '';
-                        highlightSkill(skill);
-                        showConnections(skill);
+                    div.addEventListener('click', () => {
+                        searchInput.value = skill;
+                        autocompleteList.innerHTML = '';
+                        selectSkillByName(skill);
                     });
-                    list.appendChild(div);
+                    autocompleteList.appendChild(div);
                 });
             });
 
-            document.addEventListener("click", function(e) {
-                if (e.target !== input) {
-                    document.getElementById("autocomplete-list").innerHTML = '';
+            document.addEventListener('click', function(e) {
+                if (e.target !== searchInput) {
+                    autocompleteList.innerHTML = '';
                 }
             });
         }
 
         function resetVisualization() {
             d3.selectAll('.node')
-                .classed('highlighted', false)
+                .classed('selected', false)
                 .classed('connected', false);
             
-            d3.selectAll('.link')
-                .classed('highlighted', false);
-            
-            document.getElementById('connections-panel').classList.remove('visible');
+            const panel = document.getElementById('connections-panel');
+            panel.querySelector('.connections-list').innerHTML = '';
+            panel.querySelector('.connections-count').textContent = '0 connections';
         }
 
-        async function showConnections(skill) {
-            try {
-                const response = await fetch(`/api/connections/${encodeURIComponent(skill)}`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch connections');
-                }
-                const connections = await response.json();
-                
-                const panel = document.getElementById('connections-panel');
-                const list = panel.querySelector('.connections-list');
-                const count = panel.querySelector('.connections-count');
-                
-                list.innerHTML = '';
-                count.textContent = `${connections.length || 0} connections`;
-                
-                (connections || []).forEach(connection => {
-                    const li = document.createElement('li');
-                    li.textContent = connection;
-                    li.title = connection;
-                    li.addEventListener('click', () => {
-                        document.getElementById('search').value = connection;
-                        highlightSkill(connection);
-                        showConnections(connection);
-                    });
-                    list.appendChild(li);
-                });
-                
-                panel.classList.add('visible');
-            } catch (error) {
-                console.error('Error fetching connections:', error);
-                const panel = document.getElementById('connections-panel');
-                const list = panel.querySelector('.connections-list');
-                const count = panel.querySelector('.connections-count');
-                list.innerHTML = '<li>Unable to load connections</li>';
-                count.textContent = '0 connections';
-                panel.classList.add('visible');
-            }
-        }
-
-        function highlightSkill(skill) {
-            // Reset previous highlighting
-            d3.selectAll('.node')
-                .classed('highlighted', false)
-                .classed('connected', false);
-            d3.selectAll('.link')
-                .classed('highlighted', false);
-
-            // Find and highlight the main skill node
-            const mainNode = d3.selectAll('.node')
-                .filter(d => d.id === skill);
-            mainNode.classed('highlighted', true);
-
-            // Highlight connected links
-            const connectedLinks = d3.selectAll('.link')
-                .filter(d => d.source.id === skill || d.target.id === skill);
-            connectedLinks.classed('highlighted', true);
-
-            // Highlight connected nodes
-            const connectedNodes = new Set();
-            connectedLinks.each(d => {
-                connectedNodes.add(d.source.id === skill ? d.target.id : d.source.id);
-            });
-
-            d3.selectAll('.node')
-                .filter(d => connectedNodes.has(d.id))
-                .classed('connected', true);
-        }
-
-        async function initVisualization() {
-            // Clear previous visualization
+        function initVisualization() {
             svg = d3.select("#network-container svg");
             svg.selectAll("*").remove();
             
@@ -356,77 +271,121 @@
             width = container.clientWidth;
             height = container.clientHeight;
             
-            // Create zoom behavior
             zoom = d3.zoom()
                 .scaleExtent([0.1, 4])
                 .on("zoom", (event) => {
                     networkContainer.attr("transform", event.transform);
                 });
             
-            // Create container for network elements
             networkContainer = svg.append("g");
             
-            // Apply zoom to the entire SVG
             svg.call(zoom)
-               .call(zoom.transform, d3.zoomIdentity); // Reset zoom
+               .call(zoom.transform, d3.zoomIdentity);
             
-            try {
-                const response = await fetch('/api/network');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch network data');
-                }
-                networkData = await response.json();
-                
-                simulation = d3.forceSimulation(networkData.nodes)
-                    .force("charge", d3.forceManyBody().strength(-300))
-                    .force("center", d3.forceCenter(width / 2, height / 2))
-                    .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.degree) * 4 + 10))
-                    .force("link", d3.forceLink(networkData.edges).id(d => d.id).distance(100))
-                    .on("tick", ticked);
-                
-                const link = networkContainer.selectAll(".link")
-                    .data(networkData.edges)
-                    .enter().append("line")
-                    .attr("class", "link");
-                
-                const node = networkContainer.selectAll(".node")
-                    .data(networkData.nodes)
-                    .enter().append("g")
-                    .attr("class", "node");
-                
-                node.append("circle")
-                    .attr("r", d => Math.sqrt(d.degree) * 4 + 8)
-                    .style("fill", "var(--node-primary)");
-                
-                node.append("text")
-                    .text(d => d.id)
-                    .attr("dy", "0.35em");
-                
-                function ticked() {
-                    link
-                        .attr("x1", d => d.source.x)
-                        .attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x)
-                        .attr("y2", d => d.target.y);
+            fetch('/api/network')
+                .then(response => response.json())
+                .then(data => {
+                    networkData = data;
                     
-                    node.attr("transform", d => `translate(${d.x},${d.y})`);
+                    simulation = d3.forceSimulation(networkData.nodes)
+                        .force("charge", d3.forceManyBody().strength(-300))
+                        .force("center", d3.forceCenter(width / 2, height / 2))
+                        .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.degree) * 4 + 10))
+                        .force("link", d3.forceLink(networkData.edges).id(d => d.id).distance(100))
+                        .on("tick", ticked);
+                    
+                    const link = networkContainer.selectAll(".link")
+                        .data(networkData.edges)
+                        .enter().append("line")
+                        .attr("class", "link");
+                    
+                    const node = networkContainer.selectAll(".node")
+                        .data(networkData.nodes)
+                        .enter().append("g")
+                        .attr("class", "node")
+                        .on("click", selectSkill);
+                    
+                    node.append("circle")
+                        .attr("r", d => Math.sqrt(d.degree) * 4 + 8)
+                        .style("fill", "var(--node-primary)");
+                    
+                    node.append("text")
+                        .text(d => d.id)
+                        .attr("dy", "0.35em");
+                    
+                    function ticked() {
+                        link
+                            .attr("x1", d => d.source.x)
+                            .attr("y1", d => d.source.y)
+                            .attr("x2", d => d.target.x)
+                            .attr("y2", d => d.target.y);
+                        
+                        node.attr("transform", d => `translate(${d.x},${d.y})`);
+                    }
+                });
+        }
+
+        function selectSkill(event, selectedSkill) {
+            d3.selectAll('.node')
+                .classed('selected', false)
+                .classed('connected', false);
+            d3.selectAll('.link')
+                .style('opacity', 1);
+
+            d3.select(event.currentTarget)
+                .classed('selected', true);
+
+            const connectedNodes = new Set();
+            networkData.edges.forEach(edge => {
+                if (edge.source.id === selectedSkill.id || edge.target.id === selectedSkill.id) {
+                    const connectedSkill = edge.source.id === selectedSkill.id ? edge.target.id : edge.source.id;
+                    connectedNodes.add(connectedSkill);
                 }
-            } catch (error) {
-                console.error('Error initializing visualization:', error);
+            });
+
+            updateConnectionsPanel(selectedSkill.id, Array.from(connectedNodes));
+
+            d3.selectAll('.node')
+                .filter(d => connectedNodes.has(d.id))
+                .classed('connected', true);
+        }
+
+        function selectSkillByName(skillName) {
+            const targetNode = d3.selectAll('.node').filter(d => d.id === skillName).node();
+            if (targetNode && targetNode.__data__) {
+                selectSkill({ currentTarget: targetNode }, targetNode.__data__);
             }
+        }
+
+        function updateConnectionsPanel(selectedSkill, connections) {
+            const panel = document.getElementById('connections-panel');
+            const list = panel.querySelector('.connections-list');
+            const count = panel.querySelector('.connections-count');
+
+            list.innerHTML = '';
+            count.textContent = `${connections.length} connections`;
+
+            connections.forEach(connection => {
+                const li = document.createElement('li');
+                li.textContent = connection;
+                li.addEventListener('click', () => {
+                    const targetNode = d3.selectAll('.node').filter(d => d.id === connection).node();
+                    if (targetNode) {
+                        targetNode.__data__ && selectSkill({ currentTarget: targetNode }, targetNode.__data__);
+                    }
+                });
+                list.appendChild(li);
+            });
         }
 
         async function init() {
             await loadSkills();
-            await initVisualization();
-            autocomplete(document.getElementById("search"));
-
-            window.addEventListener('resize', () => {
-                initVisualization();
-            });
+            setupAutocomplete();
+            initVisualization();
         }
 
         window.addEventListener("load", init);
+        window.addEventListener("resize", initVisualization);
     </script>
 </body>
 </html>
