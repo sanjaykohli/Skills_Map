@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Skill Network Visualization</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -181,6 +181,57 @@
 
         .connections-list li:last-child {
             border-bottom: none;
+        }
+
+        /* Mobile Responsive Styles */
+        @media screen and (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                padding: 10px;
+                gap: 10px;
+                height: auto;
+            }
+
+            .main-content {
+                flex: none;
+                height: 60vh;
+            }
+
+            .connections-panel {
+                max-width: 100%;
+                max-height: 30vh;
+                margin-top: 10px;
+            }
+
+            .search-input {
+                font-size: 14px;
+                padding: 8px;
+            }
+
+            .autocomplete-list div {
+                font-size: 14px;
+                padding: 8px;
+            }
+
+            .node text {
+                font-size: 8px;
+            }
+
+            .connections-header h2 {
+                font-size: 16px;
+            }
+
+            .connections-list li {
+                font-size: 12px;
+                padding: 10px;
+            }
+        }
+
+        /* Prevent user scaling */
+        @media screen and (max-width: 768px) {
+            html, body {
+                touch-action: manipulation;
+            }
         }
     </style>
 </head>
