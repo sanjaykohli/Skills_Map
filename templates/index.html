@@ -288,18 +288,23 @@
                 matches.forEach(skill => {
                     const div = document.createElement('div');
                     div.textContent = skill;
+                    
                     div.addEventListener('click', () => {
                         searchInput.value = skill;
                         autocompleteList.innerHTML = '';
+                        
+                        // Improved skill selection for both desktop and mobile
                         selectSkillByName(skill);
                     });
+
+                    // Ensure touch events work correctly
+                    div.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        div.click();
+                    });
+
                     autocompleteList.appendChild(div);
                 });
-            });
-
-            // Add touch event support for mobile
-            searchInput.addEventListener('touchend', function(e) {
-                this.focus();
             });
 
             document.addEventListener('click', function(e) {
@@ -382,6 +387,9 @@
         }
 
         function selectSkill(event, selectedSkill) {
+            // Prevent default behavior
+            if (event.preventDefault) event.preventDefault();
+
             // Clear previous selections
             d3.selectAll('.node')
                 .classed('selected', false)
@@ -412,10 +420,17 @@
         }
 
         function selectSkillByName(skillName) {
-            const targetNode = d3.selectAll('.node').filter(d => d.id === skillName).node();
+            const targetNode = d3.selectAll('.node')
+                .filter(d => d.id === skillName)
+                .node();
+            
             if (targetNode && targetNode.__data__) {
-                selectSkill({ currentTarget: targetNode }, targetNode.__data__);
-                
+                // Manually create an event-like object
+                selectSkill({ 
+                    currentTarget: targetNode, 
+                    preventDefault: () => {} 
+                }, targetNode.__data__);
+
                 // Scroll to network container on mobile
                 if (window.innerWidth <= 768) {
                     document.getElementById('network-container').scrollIntoView({
@@ -438,9 +453,15 @@
                 const li = document.createElement('li');
                 li.textContent = connection;
                 li.addEventListener('click', () => {
-                    const targetNode = d3.selectAll('.node').filter(d => d.id === connection).node();
+                    const targetNode = d3.selectAll('.node')
+                        .filter(d => d.id === connection)
+                        .node();
+                    
                     if (targetNode) {
-                        targetNode.__data__ && selectSkill({ currentTarget: targetNode }, targetNode.__data__);
+                        targetNode.__data__ && selectSkill({ 
+                            currentTarget: targetNode, 
+                            preventDefault: () => {} 
+                        }, targetNode.__data__);
                     }
                 });
                 list.appendChild(li);
