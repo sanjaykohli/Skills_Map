@@ -1,14 +1,17 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify
 import pandas as pd
 import networkx as nx
-from collections import defaultdict
 
 app = Flask(__name__)
 
-# Load and process data
 def load_network_data():
+    # Load data from Excel
     df = pd.read_excel("skills.xlsx", engine="openpyxl")
+    
+    # Determine unique skills
     unique_skills = set(df["Skill1"]).union(set(df["Skill2"]))
+    
+    # Filter collaborations
     collaborations = df[df["Possible Collaboration"].str.lower() == "yes"][["Skill1", "Skill2"]].values.tolist()
     
     # Create network graph
@@ -17,7 +20,7 @@ def load_network_data():
     G.add_edges_from(collaborations)
     
     # Calculate node positions using spring layout
-    pos = nx.spring_layout(G, k=0.5, iterations=50)
+    pos = nx.spring_layout(G, k=0.5, iterations=50, seed=42)
     
     # Prepare nodes data
     nodes_data = []
@@ -25,8 +28,8 @@ def load_network_data():
         nodes_data.append({
             "id": node,
             "degree": G.degree[node],
-            "x": float(pos[node][0]),
-            "y": float(pos[node][1])
+            "x": float(pos[node][0]) * 1000,  # Scale coordinates
+            "y": float(pos[node][1]) * 1000
         })
     
     # Prepare edges data
