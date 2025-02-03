@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Network Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-secondary: #1e1e1e;
+            --text-primary: #ffffff;
+            --accent-color: #FFA07A;
+            --pastel-blue: #A7C7E7;
+            --pastel-green: #98FB98;
+            --pastel-yellow: #FFD700;
+            --pastel-purple: #D8BFD8;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            height: 100vh;
+        }
+
+        .main-content {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid #333;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: var(--bg-secondary);
+        }
+
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+        }
+
+        .autocomplete-items div:hover {
+            background-color: rgba(74, 158, 255, 0.1);
+        }
+
+        #network-container {
+            flex-grow: 1;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #network-container svg {
+            cursor: move;
+        }
+
+        .node circle {
+            stroke: rgba(255,255,255,0.3);
+            stroke-width: 2px;
+            transition: transform 0.3s ease;
+        }
+
+        .node text {
+            font-weight: bold;
+            fill: var(--text-primary);
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        .link {
+            stroke: rgba(255,255,255,0.2);
+            stroke-width: 1.5px;
+            transition: all 0.3s ease;
+        }
+
+        .node.highlighted circle {
+            stroke: var(--accent-color);
+            stroke-width: 3px;
+            transform: scale(1.2);
+        }
+
+        .link.highlighted {
+            stroke: var(--accent-color);
+            stroke-width: 3px;
+        }
+
+        .connections-panel {
+            flex: 1;
+            min-width: 250px;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            display: none;
+            flex-direction: column;
+        }
+
+        .connections-panel.visible {
+            display: flex;
+        }
+
+        .connections-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .connections-list li {
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .connections-list li:hover {
+            background-color: rgba(74, 158, 255, 0.1);
+        }
+
+        .connections-count {
+            color: #666;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search for skills...">
+                <div class="autocomplete-items" id="autocomplete-list"></div>
+            </div>
+            <div id="network-container">
+                <svg width="100%" height="100%"></svg>
+            </div>
+        </div>
+        <div class="connections-panel" id="connections-panel">
+            <h2>Connected Skills</h2>
+            <div class="connections-count"></div>
+            <ul class="connections-list"></ul>
+        </div>
+    </div>
+    
+    <script>
+        let simulation;
+        let svg, container, width, height, zoom;
+        let networkData;
+        let allSkills = [];
+
+        async function loadSkills() {
+            const response = await fetch('/api/skills');
+            allSkills = await response.json();
+        }
+
+        function autocomplete(input) {
+            input.addEventListener("input", function(e) {
+                const val = this.value.toLowerCase();
+                const list = document.getElementById("autocomplete-list");
+                list.innerHTML = '';
+
+                if (!val) {
+                    resetVisualization();
+                    return;
+                }
+
+                const matches = allSkills.filter(skill => 
+                    skill.toLowerCase().includes(val)
+                );
+
+                matches.forEach(skill => {
+                    const div = document.createElement("div");
+                    div.textContent = skill;
+                    div.addEventListener("click", () => {
+                        input.value = skill;
+                        list.innerHTML = '';
+                        highlightSkill(skill);
+                        showConnections(skill);
+                    });
+                    list.appendChild(div);
+                });
+            });
+
+            document.addEventListener("click", function(e) {
+                if (e.target !== input) {
+                    document.getElementById("autocomplete-list").innerHTML = '';
+                }
+            });
+        }
+
+        function resetVisualization() {
+            d3.selectAll('.node')
+                .classed('highlighted', false);
+            
+            d3.selectAll('.link')
+                .classed('highlighted', false);
+            
+            document.getElementById('connections-panel').classList.remove('visible');
+        }
+
+        async function showConnections(skill) {
+            const response = await fetch(`/api/connections/${skill}`);
+            const connections = await response.json();
+            
+            const panel = document.getElementById('connections-panel');
+            const list = panel.querySelector('.connections-list');
+            const count = panel.querySelector('.connections-count');
+            
+            list.innerHTML = '';
+            count.textContent = `${connections.length} connections`;
+            
+            connections.forEach(connection => {
+                const li = document.createElement('li');
+                li.textContent = connection;
+                li.addEventListener('click', () => {
+                    document.getElementById('search').value = connection;
+                    highlightSkill(connection);
+                    showConnections(connection);
+                });
+                list.appendChild(li);
+            });
+            
+            panel.classList.add('visible');
+        }
+
+        function highlightSkill(skill) {
+            // Reset previous highlighting
+            d3.selectAll('.node')
+                .classed('highlighted', false);
+            d3.selectAll('.link')
+                .classed('highlighted', false);
+
+            // Highlight selected skill and its connections
+            d3.selectAll('.node')
+                .filter(d => d.id === skill)
+                .classed('highlighted', true);
+
+            d3.selectAll('.link')
+                .filter(d => d.source.id === skill || d.target.id === skill)
+                .classed('highlighted', true);
+        }
+
+        async function initVisualization() {
+            svg = d3.select("svg");
+            svg.selectAll("*").remove();
+            width = svg.node().getBoundingClientRect().width;
+            height = svg.node().getBoundingClientRect().height;
+            
+            // Create zoom behavior
+            zoom = d3.zoom()
+                .scaleExtent([0.1, 4])  // Limit zoom levels
+                .on("zoom", zoomed);
+            
+            // Apply zoom to the SVG
+            svg.call(zoom);
+            
+            // Create container for network elements
+            container = svg.append("g");
+            
+            const response = await fetch('/api/network');
+            networkData = await response.json();
+            
+            simulation = d3.forceSimulation(networkData.nodes)
+                .force("charge", d3.forceManyBody().strength(-500))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.degree) * 5 + 15))
+                .force("link", d3.forceLink(networkData.edges).id(d => d.id).distance(180))
+                .on("tick", ticked);
+            
+            const link = container.selectAll(".link")
+                .data(networkData.edges)
+                .enter().append("line")
+                .attr("class", "link");
+            
+            const node = container.selectAll(".node")
+                .data(networkData.nodes)
+                .enter().append("g")
+                .attr("class", "node");
+            
+            node.append("circle")
+                .attr("r", d => Math.sqrt(d.degree) * 5 + 10)
+                .style("fill", "var(--pastel-blue)");
+            
+            node.append("text")
+                .text(d => d.id)
+                .attr("font-size", d => {
+                    const radius = Math.sqrt(d.degree) * 5 + 10;
+                    // Dynamically size text to fit within circle
+                    return Math.min(radius * 0.6, 12);
+                })
+                .attr("dy", "0.35em");  // Vertically center text
+            
+            function ticked() {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+                
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            }
+
+            // Function to handle zoom and pan
+            function zoomed(event) {
+                container.attr("transform", event.transform);
+            }
+        }
+
+        async function init() {
+            await loadSkills();
+            await initVisualization();
+            autocomplete(document.getElementById("search"));
+        }
+
+        window.addEventListener("load", init);
+    </script>
+</body>
+</html>
