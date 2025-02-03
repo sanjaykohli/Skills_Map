@@ -10,12 +10,11 @@
             --bg-dark: #121212;
             --bg-secondary: #1e1e1e;
             --text-primary: #ffffff;
-            --accent-color: #FFA07A;
-            --pastel-blue: #A7C7E7;
-            --pastel-green: #98FB98;
-            --connected-color: #98FB98;
-            --pastel-yellow: #FFD700;
-            --pastel-purple: #D8BFD8;
+            --accent-color: #4A90E2;
+            --node-primary: #5E81AC;
+            --node-connected: #81A1C1;
+            --node-highlight: #BF616A;
+            --link-color: rgba(94, 129, 172, 0.3);
         }
 
         * {
@@ -104,7 +103,6 @@
         }
 
         #network-container svg {
-            cursor: move;
             width: 100%;
             height: 100%;
         }
@@ -125,25 +123,26 @@
         }
 
         .link {
-            stroke: rgba(255,255,255,0.2);
+            stroke: var(--link-color);
             stroke-width: 1.5px;
             transition: all 0.3s ease;
         }
 
         .node.highlighted circle {
-            stroke: var(--accent-color);
+            stroke: var(--node-highlight);
             stroke-width: 3px;
             transform: scale(1.2);
+            fill: var(--node-highlight) !important;
         }
 
         .node.connected circle {
-            fill: var(--connected-color) !important;
-            stroke: var(--pastel-green);
+            fill: var(--node-connected) !important;
+            stroke: var(--accent-color);
             stroke-width: 2.5px;
         }
 
         .link.highlighted {
-            stroke: var(--accent-color);
+            stroke: var(--node-highlight);
             stroke-width: 3px;
         }
 
@@ -217,8 +216,7 @@
     </div>
     
     <script>
-        let simulation;
-        let svg, container, width, height, zoom;
+        let simulation, svg, networkContainer, width, height, zoom;
         let networkData;
         let allSkills = [];
 
@@ -294,9 +292,9 @@
                 const count = panel.querySelector('.connections-count');
                 
                 list.innerHTML = '';
-                count.textContent = `${connections.length} connections`;
+                count.textContent = `${connections.length || 0} connections`;
                 
-                connections.forEach(connection => {
+                (connections || []).forEach(connection => {
                     const li = document.createElement('li');
                     li.textContent = connection;
                     li.title = connection;
@@ -313,7 +311,9 @@
                 console.error('Error fetching connections:', error);
                 const panel = document.getElementById('connections-panel');
                 const list = panel.querySelector('.connections-list');
+                const count = panel.querySelector('.connections-count');
                 list.innerHTML = '<li>Unable to load connections</li>';
+                count.textContent = '0 connections';
                 panel.classList.add('visible');
             }
         }
@@ -326,23 +326,21 @@
             d3.selectAll('.link')
                 .classed('highlighted', false);
 
-            // Highlight selected skill
-            d3.selectAll('.node')
-                .filter(d => d.id === skill)
-                .classed('highlighted', true);
+            // Find and highlight the main skill node
+            const mainNode = d3.selectAll('.node')
+                .filter(d => d.id === skill);
+            mainNode.classed('highlighted', true);
 
-            // Highlight connected skills
-            d3.selectAll('.link')
-                .filter(d => d.source.id === skill || d.target.id === skill)
-                .classed('highlighted', true);
+            // Highlight connected links
+            const connectedLinks = d3.selectAll('.link')
+                .filter(d => d.source.id === skill || d.target.id === skill);
+            connectedLinks.classed('highlighted', true);
 
-            // Highlight connected nodes with a different color
+            // Highlight connected nodes
             const connectedNodes = new Set();
-            d3.selectAll('.link')
-                .filter(d => d.source.id === skill || d.target.id === skill)
-                .each(d => {
-                    connectedNodes.add(d.source.id === skill ? d.target.id : d.source.id);
-                });
+            connectedLinks.each(d => {
+                connectedNodes.add(d.source.id === skill ? d.target.id : d.source.id);
+            });
 
             d3.selectAll('.node')
                 .filter(d => connectedNodes.has(d.id))
@@ -350,20 +348,27 @@
         }
 
         async function initVisualization() {
-            svg = d3.select("svg");
+            // Clear previous visualization
+            svg = d3.select("#network-container svg");
             svg.selectAll("*").remove();
             
             const container = document.getElementById('network-container');
             width = container.clientWidth;
             height = container.clientHeight;
             
+            // Create zoom behavior
             zoom = d3.zoom()
                 .scaleExtent([0.1, 4])
-                .on("zoom", zoomed);
+                .on("zoom", (event) => {
+                    networkContainer.attr("transform", event.transform);
+                });
             
-            svg.call(zoom);
+            // Create container for network elements
+            networkContainer = svg.append("g");
             
-            const networkContainer = svg.append("g");
+            // Apply zoom to the entire SVG
+            svg.call(zoom)
+               .call(zoom.transform, d3.zoomIdentity); // Reset zoom
             
             try {
                 const response = await fetch('/api/network');
@@ -391,7 +396,7 @@
                 
                 node.append("circle")
                     .attr("r", d => Math.sqrt(d.degree) * 4 + 8)
-                    .style("fill", "var(--pastel-blue)");
+                    .style("fill", "var(--node-primary)");
                 
                 node.append("text")
                     .text(d => d.id)
@@ -405,10 +410,6 @@
                         .attr("y2", d => d.target.y);
                     
                     node.attr("transform", d => `translate(${d.x},${d.y})`);
-                }
-
-                function zoomed(event) {
-                    networkContainer.attr("transform", event.transform);
                 }
             } catch (error) {
                 console.error('Error initializing visualization:', error);
